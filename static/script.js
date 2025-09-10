@@ -130,6 +130,9 @@ async function init() {
   
   // Cargar datos
   await loadExcel();
+  
+  // Agregar event listener para PDF después de cargar productos
+  document.getElementById('download-pdf').addEventListener('click', generatePriceListPDF);
 }
 
 /**
@@ -350,13 +353,15 @@ function renderProducts() {
   filtered.forEach((p, i) => {
     const card = document.createElement('div');
     card.className = 'product-card';
+  const quantityText = getQuantity(p) || '';
     card.innerHTML = `
       <div class="product-image-container">
         <img src="${p.images[0]}" alt="${p.name}" class="product-image" loading="lazy"/>
       </div>
       <div class="product-info-container">
         <h3 class="product-name">${p.name}</h3>
-        <p class="product-price">$${p.price.toFixed(2)}</p>
+    <p class="product-meta"><span class="product-code">Cod: ${p.id}</span>${quantityText ? ` • <span class="product-qty">${quantityText}</span>` : ''}</p>
+    <p class="product-price">$${p.price.toFixed(2)}</p>
       </div>`;
     
     // Abrir modal al hacer clic
@@ -380,6 +385,15 @@ function showProductDetail(product) {
   document.getElementById('modal-desc').textContent = product.description;
   document.getElementById('modal-price').textContent = `$${product.price.toFixed(2)}`;
   document.getElementById('modal-category').textContent = product.category;
+  
+  // Agregar código y cantidad en la descripción si falta
+  const qty = getQuantity(product);
+  if (qty) {
+    const descEl = document.getElementById('modal-desc');
+    if (!/Cantidad:/i.test(descEl.textContent)) {
+      descEl.textContent += `\nCantidad: ${qty}`;
+    }
+  }
   
   // Construir miniaturas y variantes
   buildThumbnails();
@@ -811,3 +825,151 @@ function populateClientSelect() {
   // Esta función ya no es necesaria ya que removimos el client selector
   // Mantener vacía por compatibilidad
 }
+
+// Función para generar PDF de lista de precios
+async function generatePriceListPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#2980b9';
+
+  // Helper to convert hex to RGB
+  function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)] : [41, 128, 185];
+  }
+  const primaryRgb = hexToRgb(primaryColor);
+
+  // Configurar fuente
+  doc.setFont('helvetica', 'normal');
+
+  // --- HEADER ---
+  // Logo
+  let logoData = null;
+  try {
+    const response = await fetch('images/logo.png');
+    if (response.ok) {
+        const blob = await response.blob();
+        logoData = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+        });
+    }
+  } catch (e) {
+    console.log('No se pudo cargar el logo para el PDF');
+  }
+
+  if (logoData) {
+    doc.addImage(logoData, 'PNG', 15, 15, 30, 30);
+  }
+
+  // Título
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Lista de Precios', doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' });
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  doc.text(new Date().toLocaleDateString('es-AR'), doc.internal.pageSize.getWidth() / 2, 32, { align: 'center' });
+
+
+  // Datos de la empresa
+  doc.setFontSize(10);
+  const companyInfoX = doc.internal.pageSize.getWidth() - 15;
+  doc.text('Bio-Quim', companyInfoX, 20, { align: 'right' });
+  doc.text('Buenos Aires, Argentina', companyInfoX, 25, { align: 'right' });
+  doc.text('administracion@bio-quim.com.ar', companyInfoX, 30, { align: 'right' });
+  doc.text('Vendedor: Valeria', companyInfoX, 40, { align: 'right' });
+  doc.text('Tel: +54 9 11 2744 4019', companyInfoX, 45, { align: 'right' });
+
+
+  // --- BODY (TABLA DE PRODUCTOS) ---
+  let startY = 60;
+
+  const categories = [...new Set(products.map(p => p.category))].sort();
+
+  categories.forEach((category, index) => {
+    const categoryProducts = products.filter(p => p.category === category);
+    if (categoryProducts.length === 0) return;
+
+    // Evitar que el título de la categoría quede solo al final de la página
+    if (startY > 250) {
+        doc.addPage();
+        startY = 20;
+    }
+
+    // Título de la categoría
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...primaryRgb);
+    doc.text(category, 14, startY);
+    doc.setTextColor(0, 0, 0); // Reset text color
+    startY += 8;
+
+    const rows = categoryProducts.map(p => [
+      p.name,
+      getQuantity(p) || '',
+      `$${p.price.toFixed(2)}`
+    ]);
+
+    doc.autoTable({
+      startY: startY,
+      head: [['Producto', 'Presentación', 'Precio']],
+      body: rows,
+      theme: 'striped', // 'striped', 'grid', 'plain'
+      styles: {
+        fontSize: 9,
+        cellPadding: 2,
+        valign: 'middle'
+      },
+      headStyles: {
+        fillColor: primaryRgb,
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { cellWidth: 30, halign: 'center' },
+        2: { cellWidth: 25, halign: 'right' }
+      },
+      didDrawPage: function (data) {
+        // --- FOOTER ---
+        const pageCount = doc.internal.getNumberOfPages();
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(
+          `Página ${data.pageNumber} de ${pageCount}`,
+          doc.internal.pageSize.getWidth() / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: 'center' }
+        );
+      },
+      margin: { top: 10, bottom: 20 } // Margen para footer
+    });
+    
+    startY = doc.autoTable.previous.finalY + 12;
+  });
+
+
+  // Guardar el PDF
+  doc.save(`lista_precios_bio_quim_${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
+// Event listener para el botón de descarga
+// document.getElementById('download-pdf').addEventListener('click', generatePriceListPDF);
+
+// =====================
+// Helpers extra
+// =====================
+function getQuantity(product) {
+  // Se pidió usar directamente la columna "description" como cantidad.
+  if (product.description) {
+    return String(product.description).trim();
+  }
+  // Fallback (por si algún producto no trae description) usando lógica anterior resumida
+  const name = product.name || '';
+  const match = name.match(/(\d+[\.,]?\d*)\s*(LT|L|KG|KGS|G|GR|GRS|ML|CC|UNID(?:ADES)?|U|UND|UNIDADES)/i);
+  if (match) return match[1].replace(',', '.') + ' ' + match[2].toUpperCase();
+  return '';
+}
+
