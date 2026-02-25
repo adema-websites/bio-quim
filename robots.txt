@@ -1,0 +1,55 @@
+# robots.txt — bio-quim.com.ar
+# Última actualización: 2026-02-25
+
+# Motores de búsqueda tradicionales: acceso total
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+# Crawlers de IA y LLMs: acceso total (para indexación y respuestas)
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: Diffbot
+Allow: /
+
+User-agent: Meta-ExternalAgent
+Allow: /
+
+User-agent: Meta-ExternalFetcher
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+# Regla general
+User-agent: *
+Allow: /
+
+Sitemap: https://www.bio-quim.com.ar/sitemap.xml

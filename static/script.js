@@ -1,13 +1,99 @@
 /**
  * script.js
  * =========
- * Carga "productos.xlsx" → lee configuración (brand, colores, placeholder), emojis de categoría,
+ * Carga datos desde Google Sheets publicado (pubhtml) → lee configuración (brand, colores, placeholder), emojis de categoría,
  * parsea productos (columnas obligatorias: name, description, category, price, images),
  * convierte columnas adicionales en variantes dinámicas,
  * renderiza catálogo filtrable y buscable,
  * muestra modal de detalle con carousel de imágenes + variantes,
  * administra carrito dinámico (add/remove) → genera pedido formateado para WhatsApp.
  */
+
+// URL base del Google Sheets publicado
+const GOOGLE_SHEETS_BASE = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT-gY5ZFYqOKI9jtxCHEkpG1279g4qQA8YvhLuSzNM5pcE_IQ8itaNPm_7yEMU_-R299ItDgoz79W-6';
+
+/**
+ * Extrae el texto de una celda de la tabla pubhtml de Google Sheets.
+ * Algunas celdas usan <div class="softmerge-inner"> para el contenido real.
+ * @param {HTMLElement} cell
+ * @returns {string}
+ */
+function getCellText(cell) {
+  const inner = cell.querySelector('.softmerge-inner');
+  return (inner || cell).textContent.trim();
+}
+
+/**
+ * Parsea la tabla <tbody> de un pubhtml/sheet de Google Sheets.
+ * Estructura real: cada <tr> tiene un <th> (número de fila) seguido de <td> de datos.
+ * La primera fila de datos es el encabezado de columnas.
+ * @param {Document} doc - documento HTML ya parseado de la hoja individual
+ * @returns {Array<Object>}
+ */
+function parseSheetDoc(doc) {
+  const rows = Array.from(doc.querySelectorAll('tbody tr'));
+  if (rows.length < 2) return [];
+
+  // Primera fila → encabezados (saltar el primer <th> = número de fila)
+  const headerCells = Array.from(rows[0].querySelectorAll('td'));
+  const headers = headerCells.map(getCellText);
+
+  // Resto de filas → datos
+  return rows.slice(1).map(row => {
+    const cells = Array.from(row.querySelectorAll('td'));
+    const obj = {};
+    headers.forEach((header, i) => {
+      if (!header) return;
+      const val = cells[i] ? getCellText(cells[i]) : '';
+      if (val !== '') obj[header] = val;
+    });
+    return obj;
+  }).filter(obj => Object.keys(obj).length > 0);
+}
+
+/**
+ * Obtiene el Google Sheets publicado y construye un workbook compatible.
+ * Paso 1: fetch del pubhtml principal → extrae nombres de hoja y GIDs vía regex en el JS inline.
+ * Paso 2: fetch individual de cada hoja en pubhtml/sheet?headers=false&gid={gid}.
+ * wb.SheetNames → array de nombres de hoja
+ * wb.Sheets[nombre] → array de objetos de fila (ya parseados)
+ * @returns {Object} workbook
+ */
+async function fetchGoogleSheets() {
+  // 1. Obtener lista de hojas y sus GIDs desde el pubhtml principal
+  const indexResp = await fetch(`${GOOGLE_SHEETS_BASE}/pubhtml`);
+  if (!indexResp.ok) throw new Error(`Error al obtener el índice de hojas: ${indexResp.status}`);
+  const indexHtml = await indexResp.text();
+
+  // El JS inline contiene: items.push({name: "Nombre", ..., gid: "12345", ...})
+  const sheetList = [];
+  const itemRegex = /items\.push\(\{name:\s*"([^"]+)"[^}]+gid:\s*"([^"]+)"/g;
+  let match;
+  while ((match = itemRegex.exec(indexHtml)) !== null) {
+    sheetList.push({ name: match[1], gid: match[2] });
+  }
+
+  if (sheetList.length === 0) throw new Error('No se encontraron hojas en el Google Sheets publicado.');
+
+  // 2. Fetch y parseo de cada hoja individualmente
+  const wb = { SheetNames: [], Sheets: {} };
+  const parser = new DOMParser();
+
+  await Promise.all(sheetList.map(async ({ name, gid }) => {
+    const url = `${GOOGLE_SHEETS_BASE}/pubhtml/sheet?headers=false&gid=${gid}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      console.warn(`No se pudo cargar la hoja "${name}" (gid=${gid}): ${resp.status}`);
+      return;
+    }
+    const html = await resp.text();
+    const doc = parser.parseFromString(html, 'text/html');
+    wb.SheetNames.push(name);
+    wb.Sheets[name] = parseSheetDoc(doc);
+  }));
+
+  return wb;
+}
 
 // Elementos DOM principales
 const loading = document.getElementById('loading-indicator');
@@ -130,20 +216,73 @@ async function init() {
   
   // Cargar datos
   await loadExcel();
-  
+  loadPromociones();
+
   // Agregar event listener para PDF después de cargar productos
   document.getElementById('download-pdf').addEventListener('click', generatePriceListPDF);
 }
 
 /**
- * Carga y parsea el archivo Excel
+ * Lee la hoja "promociones" del Google Sheets y renderiza dinámicamente
+ * los combos en #promos-container. Si la hoja no existe o está vacía,
+ * se mantienen los combos estáticos definidos en el HTML.
+ * Columnas esperadas: nombre, items, precio, mensaje_wa
+ */
+async function loadPromociones() {
+  try {
+    const wb = await fetchGoogleSheets();
+    const sheetName = wb.SheetNames.find(n => /promociones/i.test(n));
+    if (!sheetName) return; // sin hoja → mantener HTML estático
+
+    const rows = wb.Sheets[sheetName];
+    if (!rows || rows.length === 0) return;
+
+    const container = document.getElementById('promos-container');
+    if (!container) return;
+
+    // Limpiar combos estáticos
+    container.innerHTML = '';
+
+    const isPremium = (nombre) => /premium/i.test(nombre);
+
+    rows.forEach((row, idx) => {
+      const nombre  = row['nombre']    || row['Nombre']   || `Combo ${idx + 1}`;
+      const items   = row['items']     || row['Items']     || '';
+      const precio  = row['precio']    || row['Precio']    || '';
+      const msgWa   = row['mensaje_wa']|| row['Mensaje WA']||
+                      `Hola! Quiero pedir el ${nombre} de la web.`;
+      const waNumber = (document.getElementById('send-whatsapp') || {}).dataset?.whatsapp || '5491123456789';
+      const waUrl   = `https://wa.me/${waNumber}?text=${encodeURIComponent(msgWa)}`;
+
+      const premium = isPremium(nombre);
+      const itemsList = items.split(',').map(i => i.trim()).filter(Boolean);
+
+      const card = document.createElement('div');
+      card.className = `promo-card${premium ? ' promo-card--premium' : ''}`;
+      card.innerHTML = `
+        <div class="promo-badge${premium ? ' promo-badge--premium' : ''}">${nombre}</div>
+        <ul class="promo-items">
+          ${itemsList.map(item => `<li><i class="fas fa-check-circle"></i> ${item}</li>`).join('')}
+        </ul>
+        <p class="promo-price">${precio}</p>
+        <a class="btn-promo-wa${premium ? ' btn-promo-wa--premium' : ''}"
+           href="${waUrl}" target="_blank" rel="noopener">
+          <i class="fab fa-whatsapp"></i> Pedir por WhatsApp
+        </a>`;
+      container.appendChild(card);
+    });
+  } catch (err) {
+    console.warn('No se pudieron cargar promociones dinámicas. Se usan los combos estáticos.', err);
+  }
+}
+
+/**
+ * Carga y parsea los datos desde Google Sheets
  */
 async function loadExcel() {
   loading.style.display = 'flex';
   try {
-    const resp = await fetch('config.xlsx');
-    const data = new Uint8Array(await resp.arrayBuffer());
-    const wb = XLSX.read(data, { type: 'array' });
+    const wb = await fetchGoogleSheets();
 
     // Aplicar configuración y cargar datos
     applyConfig(wb);
@@ -160,7 +299,7 @@ async function loadExcel() {
     categoryFilters.style.display = 'block';
     updateCartBadge();
   } catch (err) {
-    console.error('Error al cargar el Excel:', err);
+    console.error('Error al cargar Google Sheets:', err);
     alert('Error al cargar los productos: ' + err.message);
   } finally {
     loading.style.display = 'none';
@@ -172,7 +311,7 @@ function applyConfig(wb) {
 
   const cfgSheet = wb.SheetNames.find(n => /configuracion/i.test(n));
   if (!cfgSheet) return;
-  const cfg = XLSX.utils.sheet_to_json(wb.Sheets[cfgSheet])[0] || {};
+  const cfg = (wb.Sheets[cfgSheet] || [])[0] || {};
   
   if (cfg.WhatsAppNumber) {
     sendBtn.dataset.whatsapp = cfg.WhatsAppNumber;
@@ -233,7 +372,7 @@ function loadEmojis(wb) {
   const sheet = wb.SheetNames.find(n => /categoryemojis/i.test(n));
   if (!sheet) return;
   
-  XLSX.utils.sheet_to_json(wb.Sheets[sheet]).forEach(r => {
+  (wb.Sheets[sheet] || []).forEach(r => {
     if (r.Category && r.Emoji) emojis[r.Category] = r.Emoji;
   });
 }
@@ -247,7 +386,7 @@ function parseProducts(wb) {
   const sheetName = wb.SheetNames.find(n => /productos/i.test(n));
   if (!sheetName) throw new Error('Hoja "Productos" no encontrada.');
   
-  const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
+  const rows = wb.Sheets[sheetName] || [];
   const reserved = ['id','Id','name','Name','description','Description','category','Category','price','Price','images','Images'];
 
   return rows.map(r => {
@@ -290,7 +429,7 @@ function parseProducts(wb) {
 function loadClients(wb) {
   const sheet = wb.SheetNames.find(n => /clientes/i.test(n));
   if (!sheet) return;
-  clients = XLSX.utils.sheet_to_json(wb.Sheets[sheet]);
+  clients = wb.Sheets[sheet] || [];
 }
 
 /**
@@ -818,7 +957,7 @@ document.head.appendChild(style);
 function loadClients(wb) {
   const sheet = wb.SheetNames.find(n => /clientes/i.test(n));
   if (!sheet) return;
-  clients = XLSX.utils.sheet_to_json(wb.Sheets[sheet]);
+  clients = wb.Sheets[sheet] || [];
 }
 
 function populateClientSelect() {
