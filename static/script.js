@@ -106,6 +106,11 @@ sendBtn.onclick = sendOrder;
 
 const openCartBtn = document.getElementById('open-cart');
 const emptyCartMessage = document.getElementById('empty-cart-message');
+const fallbackWhatsAppNumber = (
+  document.getElementById('cart-send')?.dataset?.whatsapp ||
+  sendBtn.dataset.whatsapp ||
+  '5491123456789'
+).replace(/\D/g, '');
 
 
 // Variables globales
@@ -119,6 +124,47 @@ let currentIndex = 0,
 
 let clients = [];
 
+function normalizeWhatsAppPhone(value) {
+  const raw = String(value || '').trim();
+  if (!raw || /e\+?/i.test(raw)) return '';
+  const digits = raw.replace(/\D/g, '');
+  return digits.length >= 10 ? digits : '';
+}
+
+function getWhatsAppPhone() {
+  return normalizeWhatsAppPhone(sendBtn.dataset.whatsapp) || fallbackWhatsAppNumber;
+}
+
+const b2bConsultFlows = {
+  lavadero: {
+    kicker: 'Flujo lavadero / laverrap',
+    title: 'Abastecimiento mayorista para lavaderos y laverraps',
+    image: 'images/laverrap.png',
+    description: 'Trabajamos con lavaderos, laverraps y negocios que necesitan insumos constantes, precios por volumen y entrega directa. Te asesoramos para armar una compra práctica según tu consumo real.',
+    points: [
+      'Venta por mayor en bidones y presentaciones para uso profesional.',
+      'Entregas directas a comercios, con rutas programadas en Zona Oeste y CABA.',
+      'Fragancias, suavizantes, jabones, detergentes y productos de limpieza para el día a día del local.',
+      'Atención comercial para consultar precios, reposición y frecuencia de entrega.'
+    ],
+    cta: 'Consultar precios para lavadero',
+    whatsappMessage: 'Hola! Vengo desde la consulta para LAVADERO/LAVERRAP de la web. Quiero consultar precios mayoristas, entregas a negocio y productos recomendados para mi local.'
+  },
+  gastro: {
+    kicker: 'Flujo gastronomía / comercio',
+    title: 'Insumos por mayor para cocinas, bares y comercios',
+    image: 'images/cocina.png',
+    description: 'Proveemos productos de limpieza profesional para negocios gastronómicos y comercios que buscan comprar directo, resolver la reposición y mantener stock sin depender de compras sueltas.',
+    points: [
+      'Desengrasantes, detergentes, lavandina, sanitizantes y productos de limpieza de uso intensivo.',
+      'Venta mayorista para bares, restaurantes, cocinas, locales y empresas.',
+      'Entrega directa al negocio y asesoramiento según rubro, frecuencia y volumen.',
+      'Presupuesto por WhatsApp con identificación de este flujo para responder más rápido.'
+    ],
+    cta: 'Pedir presupuesto mayorista',
+    whatsappMessage: 'Hola! Vengo desde la consulta para GASTRONOMIA/COMERCIOS de la web. Quiero pedir un presupuesto mayorista y consultar entregas directas a mi negocio.'
+  }
+};
 /**
  * Inicialización: enlaza eventos y carga el Excel
  */
@@ -127,6 +173,7 @@ document.addEventListener('DOMContentLoaded', init);
 async function init() {
   // Configurar event listeners
   resetFilterBtn.onclick = () => applyFilter(null);
+  initB2BConsults();
   
   const searchInput = document.getElementById('search-input');
   if (searchInput) {
@@ -194,16 +241,14 @@ async function init() {
   // Cerrar modales con Escape
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      document.getElementById('product-modal').classList.add('hidden');
-      document.getElementById('cart-modal').classList.add('hidden');
+      document.querySelectorAll('.modal').forEach(modal => modal.classList.add('hidden'));
     }
   });
   
   // Cerrar modales al hacer clic en backdrop
   document.querySelectorAll('.modal-backdrop').forEach(el => {
     el.addEventListener('click', () => {
-      document.getElementById('product-modal').classList.add('hidden');
-      document.getElementById('cart-modal').classList.add('hidden');
+      el.closest('.modal').classList.add('hidden');
     });
   });
   
@@ -222,6 +267,34 @@ async function init() {
   document.getElementById('download-pdf').addEventListener('click', generatePriceListPDF);
 }
 
+function initB2BConsults() {
+  document.querySelectorAll('[data-b2b-flow]').forEach(card => {
+    card.addEventListener('click', () => openB2BConsultModal(card.dataset.b2bFlow));
+  });
+}
+
+function openB2BConsultModal(flowKey) {
+  const flow = b2bConsultFlows[flowKey];
+  const modal = document.getElementById('b2b-modal');
+  if (!flow || !modal) return;
+
+  document.getElementById('b2b-modal-kicker').textContent = flow.kicker;
+  document.getElementById('b2b-modal-title').textContent = flow.title;
+  document.getElementById('b2b-modal-description').textContent = flow.description;
+
+  const media = document.getElementById('b2b-modal-media');
+  media.style.backgroundImage = `linear-gradient(180deg, rgba(8, 20, 16, 0.1), rgba(8, 20, 16, 0.36)), url('${flow.image}')`;
+
+  const points = document.getElementById('b2b-modal-points');
+  points.innerHTML = flow.points.map(point => `<li>${point}</li>`).join('');
+
+  const phone = getWhatsAppPhone();
+  const whatsapp = document.getElementById('b2b-modal-whatsapp');
+  whatsapp.href = `https://wa.me/${phone}?text=${encodeURIComponent(flow.whatsappMessage)}`;
+  whatsapp.innerHTML = `<i class="fab fa-whatsapp"></i> ${flow.cta}`;
+
+  modal.classList.remove('hidden');
+}
 /**
  * Lee la hoja "promociones" del Google Sheets y renderiza dinámicamente
  * los combos en #promos-container. Si la hoja no existe o está vacía,
@@ -251,7 +324,7 @@ async function loadPromociones() {
       const precio  = row['precio']    || row['Precio']    || '';
       const msgWa   = row['mensaje_wa']|| row['Mensaje WA']||
                       `Hola! Quiero pedir el ${nombre} de la web.`;
-      const waNumber = (document.getElementById('send-whatsapp') || {}).dataset?.whatsapp || '5491123456789';
+      const waNumber = getWhatsAppPhone();
       const waUrl   = `https://wa.me/${waNumber}?text=${encodeURIComponent(msgWa)}`;
 
       const premium = isPremium(nombre);
@@ -313,37 +386,17 @@ function applyConfig(wb) {
   if (!cfgSheet) return;
   const cfg = (wb.Sheets[cfgSheet] || [])[0] || {};
   
-  if (cfg.WhatsAppNumber) {
-    sendBtn.dataset.whatsapp = cfg.WhatsAppNumber;
+  const configuredWhatsApp = normalizeWhatsAppPhone(cfg.WhatsAppNumber);
+  if (configuredWhatsApp) {
+    sendBtn.dataset.whatsapp = configuredWhatsApp;
   }
   
   // Brand name (texto) dentro de <h1 class="logo"><a>
   const brandLink = document.querySelector('.brand .logo a');
   if (cfg.BrandName) brandLink.textContent = cfg.BrandName;
 
-  // Hero dinámico
-  const heroSection = document.querySelector('.hero');
-  const heroTitleEl = document.querySelector('.hero-content h1');
-  const heroDescEl  = document.querySelector('.hero-content p');
-
-  if (cfg.HeroImage) {
-    if (cfg.HeroImage.startsWith('#')) {
-      heroSection.style.background = cfg.HeroImage;
-    } else {
-      heroSection.style.background = `url(${cfg.HeroImage}) center/cover no-repeat`;
-    }
-  }
-
-  if (cfg.HeroTitle) heroTitleEl.textContent = cfg.HeroTitle;
-  if (cfg.HeroDescription) heroDescEl.textContent = cfg.HeroDescription;
-  
-  // Background fallback color
-  if (cfg.HeroBackgroundColor && !cfg.HeroImage) {
-    heroSection.style.background = cfg.HeroBackgroundColor;
-  }
-
-  // Configurar logo/nombre
-  if (cfg.BrandName) logoEl.textContent = cfg.BrandName;
+  // El hero principal es contenido editorial/SEO y queda definido en el HTML.
+  // No se pisa desde Google Sheets para evitar cambios accidentales de posicionamiento.
   
   // Configurar LogoURL - aplicar a la logo-icon y mantener texto
   if (cfg.LogoURL) {
@@ -908,7 +961,7 @@ function sendOrder() {
   text += `Gracias!`;
   
   // Abrir WhatsApp
-  const phone = sendBtn.dataset.whatsapp.replace(/\D/g,'');
+  const phone = getWhatsAppPhone();
   window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
   
 }

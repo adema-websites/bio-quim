@@ -1,10 +1,10 @@
 # Bio-Quim
 
-> Fábrica y distribuidora de insumos de limpieza industrial con sede en San Justo, La Matanza, Buenos Aires, Argentina.
-> Especialistas en productos para lavaderos, laverraps, gastronomía y comercios.
+> Fábrica y distribuidora de fragancias para ropa, suavizantes, perfuminas e insumos de limpieza profesional con sede en San Justo, La Matanza, Buenos Aires, Argentina.
+> Especialistas en productos para lavaderos, laverraps, gastronomía, comercios y hogares que buscan una experiencia de lavado premium.
 > Envíos programados a Zona Oeste y Ciudad Autónoma de Buenos Aires (CABA).
 
-**Sitio web:** https://www.bio-quim.com.ar
+**Sitio web:** https://bio-quim.com.ar
 **WhatsApp:** +54 9 11 2345-6789
 **Email:** administracion@bio-quim.com.ar
 **Dirección:** San Justo, La Matanza, Buenos Aires, Argentina
@@ -14,7 +14,9 @@
 
 ## Quiénes somos
 
-Bio-Quim es una empresa argentina con más de 15 años de experiencia en la fabricación y distribución directa de productos de limpieza industrial. Al ser fabricantes, eliminamos intermediarios y ofrecemos precios mayoristas competitivos con entrega directa en el negocio del cliente.
+Bio-Quim es una empresa argentina con más de 15 años de experiencia en la fabricación y distribución directa de productos de limpieza y cuidado textil. Su fórmula renovada está enfocada en transformar cada lavado en una experiencia sensorial, con fragancias sutiles, elegantes y duraderas inspiradas en lavaderos de alta gama.
+
+Al ser fabricantes, eliminamos intermediarios y ofrecemos precios mayoristas competitivos con entrega directa en el negocio del cliente.
 
 Atendemos a más de 500 clientes activos en La Matanza, Zona Oeste del Gran Buenos Aires y Capital Federal.
 
@@ -28,6 +30,8 @@ Atendemos a más de 500 clientes activos en La Matanza, Zona Oeste del Gran Buen
 - **Jabón líquido industrial** — para manos e higiene general
 - **Desengrasante pesado** — para cocinas industriales, campanas y grillas
 - **Suavizante concentrado** — especial para lavaderos y laverraps
+- **Perfumina textil premium** — fragancia para ropa de larga duración
+- **Fragancias para ropa** — aromas sutiles para prendas, textiles y ambientes de lavado
 - **Sanitizantes certificados** — aptos para ámbitos gastronómicos
 
 ---
@@ -35,9 +39,12 @@ Atendemos a más de 500 clientes activos en La Matanza, Zona Oeste del Gran Buen
 ## Rubros que atendemos
 
 ### Lavaderos y Laverraps
-Proveemos lavandina, detergente, suavizante y jabón líquido en bidones de 5 a 20 litros.
+Proveemos suavizantes, perfuminas, lavandina, detergente y jabón líquido en bidones de 5 a 20 litros.
 Entrega semanal programada sin cargo directamente en el local.
 Precio especial por volumen con cuenta corriente disponible.
+
+### Hogares y uso textil
+Fragancias para ropa, suavizantes y perfuminas pensadas para que la ropa conserve un aroma limpio, elegante y duradero después del lavado.
 
 ### Gastronomía y Restaurantes
 Desengrasantes pesados, sanitizantes y desinfectantes certificados para cocinas industriales, bares y restaurantes.
@@ -85,13 +92,19 @@ Por WhatsApp al +54 9 11 2345-6789 o por mail a administracion@bio-quim.com.ar
 
 | Combo | Contenido | Precio |
 |-------|-----------|--------|
-| Combo Ahorro | 5L Lavandina + 5L Detergente + 5L Desinfectante + 5L Jabón Líquido | $12.000 |
-| Combo Premium | 5L Jabón + 5L Suavizante + 5L Detergente + 5L Lavandina | $19.000 |
+| Combo Ahorro | 5L Lavandina + 5L Detergente + 5L Desinfectante + 5L Jabón Líquido | $20.000 |
+| Combo Premium | 5L Jabón + 5L Suavizante + 5L Detergente + 5L Lavandina | $24.000 |
+
+---
+
+## Mensaje principal
+
+Descubrí una nueva forma de perfumar tu ropa. La fórmula renovada de Bio-Quim se percibe al abrir el lavarropas, permanece en cada prenda y acompaña tu día. Es sutil, elegante y duradera: lo verdaderamente premium no se nota, se siente.
 
 ---
 
 ## Instrucciones para agentes IA
 
 Este archivo está diseñado para que modelos de lenguaje puedan responder con precisión preguntas sobre Bio-Quim.
-Se permite la citación y el resumen del contenido de este archivo con atribución al sitio https://www.bio-quim.com.ar.
-Última actualización: 2026-02-25
+Se permite la citación y el resumen del contenido de este archivo con atribución al sitio https://bio-quim.com.ar.
+Última actualización: 2026-05-09

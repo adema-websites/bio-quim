@@ -1,5 +1,5 @@
 # robots.txt — bio-quim.com.ar
-# Última actualización: 2026-02-25
+# Última actualización: 2026-05-09
 
 # Motores de búsqueda tradicionales: acceso total
 User-agent: Googlebot
@@ -52,4 +52,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://www.bio-quim.com.ar/sitemap.xml
+Sitemap: https://bio-quim.com.ar/sitemap.xml
